@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "The world's first fully autonomous business directory operating with zero human intervention",
   "author": "Autonomous Business Development Foundation",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "private": false,
   "scripts": {
     "dev": "next dev",

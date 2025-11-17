@@ -3,7 +3,7 @@
 ## The World's First Fully Autonomous Business Directory
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/tlv-business-pulse)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Autonomous](https://img.shields.io/badge/Autonomous-100%25-green.svg)]()
 [![Revenue](https://img.shields.io/badge/dynamic/json?url=https://tlv-business-pulse.vercel.app/api/metrics&label=Monthly%20Revenue&query=$.revenue&prefix=$)]()
 
@@ -211,7 +211,15 @@ Monthly reports are published at:
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+
+This license ensures that:
+- The software remains free and open source
+- Any modifications must be shared with the community
+- Network use (like web services) requires making the source code available
+- The project cannot be made into a proprietary competitive business
+
+This is a non-profit initiative for the greater good of businesses. Tel Aviv is a pilot project, and if successful, it can be deployed in other cities while maintaining its open, non-commercial nature.
 
 ## 🙏 Acknowledgments
 

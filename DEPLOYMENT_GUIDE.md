@@ -195,10 +195,12 @@ Track these KPIs in your dashboard:
 
 ## 📜 License & Transparency
 
-- MIT License (fully open source)
+- AGPL-3.0 License (copyleft open source - ensures the project remains free and non-commercial)
 - All code publicly visible
 - Monthly financial reports published
 - 100% profits to Autonomous Business Development Foundation
+- Network use requires sharing source code (preventing proprietary forks)
+- This is a non-profit pilot for Tel Aviv that can be replicated in other cities
 
 ## ⚡ Launch Commands Summary
 
