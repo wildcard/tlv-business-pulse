@@ -203,9 +203,9 @@ export class DataFetcher {
     }, {} as Record<string, number>);
 
     // Identify trends
-    const trends = [];
+    const trends: string[] = [];
     const topCategory = Object.entries(byCategory)
-      .sort(([, a], [, b]) => b - a)[0];
+      .sort(([, a], [, b]) => (b as number) - (a as number))[0];
     if (topCategory) {
       trends.push(`Most common business type: ${topCategory[0]} (${topCategory[1]} businesses)`);
     }

@@ -160,10 +160,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
     // Fetch API call statistics (last 24 hours)
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: apiCalls } = await supabase
-      .from('api_keys')
-      .select('requests_count', { count: 'exact', head: false })
-      .gte('last_used', twentyFourHoursAgo);
 
     // Calculate total API calls from all active keys in last 24h
     const { data: apiKeysData } = await supabase
@@ -359,10 +355,20 @@ export async function validateApiKey(key: string) {
  * Increment API key request count
  */
 export async function incrementApiKeyRequests(key: string): Promise<void> {
+  // First get the current count
+  const { data: currentData } = await supabase
+    .from('api_keys')
+    .select('requests_count')
+    .eq('key', key)
+    .single();
+
+  const newCount = (currentData?.requests_count || 0) + 1;
+
+  // Then update with the new count
   const { error } = await supabase
     .from('api_keys')
     .update({
-      requests_count: supabase.raw('requests_count + 1'),
+      requests_count: newCount,
       last_used: new Date().toISOString(),
     })
     .eq('key', key);

@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
 
 // Client-side Supabase client (uses anon key)
 export const supabaseClient = createClient<Database>(

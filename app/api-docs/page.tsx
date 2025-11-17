@@ -226,7 +226,7 @@ function Endpoint({
   )
 }
 
-function CodeBlock({ language, code }: { language: string; code: string }) {
+function CodeBlock({ code }: { language?: string; code: string }) {
   return (
     <div className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto">
       <pre className="text-sm font-mono">
