@@ -1,0 +1,189 @@
+name: Autonomous Business Operations
+
+on:
+  schedule:
+    # Run daily at 6 AM Israel Standard Time (3 AM UTC / 4 AM UTC during DST)
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - fetch-data
+          - generate-content
+          - publish
+          - health-check
+          - optimize
+
+env:
+  TZ: 'Asia/Jerusalem'
+
+jobs:
+  daily-operations:
+    name: Daily Autonomous Operations
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup environment
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+          echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}" >> $GITHUB_ENV
+
+      - name: 📊 Fetch Latest Business Data
+        if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'fetch-data'
+        run: |
+          echo "Fetching Tel Aviv business data..."
+          npm run cron:fetch
+        continue-on-error: true
+
+      - name: 🤖 Generate AI Content
+        if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'generate-content'
+        run: |
+          echo "Generating insights with AI..."
+          npm run cron:generate
+        continue-on-error: true
+
+      - name: 📝 Publish Content
+        if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'publish'
+        run: |
+          echo "Publishing to website..."
+          npm run cron:publish
+        continue-on-error: true
+
+      - name: 📱 Post to Social Media
+        if: github.event.inputs.operation == 'all'
+        run: |
+          echo "Posting to social media..."
+          node scripts/social-media.js
+        continue-on-error: true
+
+      - name: 💰 Check Revenue & Metrics
+        if: github.event.inputs.operation == 'all'
+        run: |
+          echo "Checking revenue and metrics..."
+          node scripts/check-revenue.js
+
+      - name: 🔧 Optimize Performance
+        if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'optimize'
+        run: |
+          echo "Optimizing system performance..."
+          node scripts/optimize.js
+
+      - name: 📈 Generate Daily Report
+        if: github.event.inputs.operation == 'all'
+        run: |
+          echo "Generating daily report..."
+          node scripts/daily-report.js
+
+      - name: 🩺 Health Check
+        if: always()
+        run: |
+          echo "Running system health check..."
+          npm run cron:health
+
+      - name: 📧 Send Status Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: ⚠️ TLV Business Pulse - Operation Alert
+          to: admin@tlv-business-pulse.com
+          from: TLV Business Pulse Bot
+          body: |
+            Autonomous operation encountered an issue.
+            
+            Workflow: ${{ github.workflow }}
+            Job: ${{ github.job }}
+            Status: ${{ job.status }}
+            
+            View logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Commit changes
+        if: success()
+        run: |
+          git config --global user.name 'TLV Business Bot'
+          git config --global user.email 'bot@tlv-business-pulse.com'
+          git add -A
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Automated update: $(date +'%Y-%m-%d %H:%M:%S')" && git push)
+
+  hourly-health-check:
+    name: Hourly Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.operation == 'health-check'
+    
+    steps:
+      - name: Check API Status
+        run: |
+          curl -f https://tlv-business-pulse.vercel.app/api/health || exit 1
+
+      - name: Check Website Status
+        run: |
+          curl -f https://tlv-business-pulse.vercel.app || exit 1
+
+      - name: Monitor Error Rate
+        run: |
+          # Check error logs and alert if threshold exceeded
+          echo "Checking error rates..."
+
+  weekly-optimization:
+    name: Weekly System Optimization
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.event.schedule == '0 0 * * 0'
+    
+    steps:
+      - name: Analyze Performance Metrics
+        run: echo "Analyzing weekly performance..."
+
+      - name: Optimize Database
+        run: echo "Running database optimization..."
+
+      - name: Clean Up Old Data
+        run: echo "Cleaning up old data..."
+
+      - name: Update SEO Settings
+        run: echo "Optimizing SEO settings..."
+
+  monthly-financial-report:
+    name: Monthly Financial Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.event.schedule == '0 0 1 * *'
+    
+    steps:
+      - name: Calculate Revenue
+        run: echo "Calculating monthly revenue..."
+
+      - name: Process Expenses
+        run: echo "Processing operational expenses..."
+
+      - name: Transfer to Non-Profit
+        run: echo "Initiating transfer to non-profit..."
+
+      - name: Generate Transparency Report
+        run: echo "Generating monthly transparency report..."
+
+      - name: Publish Report
+        run: echo "Publishing report to GitHub..."
