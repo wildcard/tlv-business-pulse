@@ -5,18 +5,4 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["iad1"],
-  "env": {
-    "SUPABASE_URL": "@supabase-url",
-    "SUPABASE_ANON_KEY": "@supabase-anon-key",
-    "OPENAI_API_KEY": "@openai-api-key",
-    "STRIPE_SECRET_KEY": "@stripe-secret-key",
-    "NEXT_PUBLIC_SITE_URL": "@site-url"
-  },
-  "build": {
-    "env": {
-      "SUPABASE_URL": "@supabase-url",
-      "SUPABASE_ANON_KEY": "@supabase-anon-key",
-      "OPENAI_API_KEY": "@openai-api-key"
-    }
-  }
 }
