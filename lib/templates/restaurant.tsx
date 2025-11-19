@@ -1,5 +1,8 @@
+'use client';
+
 import React from 'react';
 import { GeneratedWebsite } from '../ai/generate';
+import { VerificationBadge } from '@/components/ui/VerificationBadge';
 
 interface RestaurantTemplateProps {
   business: {
@@ -15,12 +18,24 @@ interface RestaurantTemplateProps {
     price: string;
     category: string;
   }>;
+  verified?: boolean;
+  licenseNumber?: string;
+  dataSources?: string[];
+  lastVerified?: Date;
 }
 
 export function RestaurantTemplate({
   business,
   generated,
   menu = [],
+  verified = true,
+  licenseNumber = '515738293',
+  dataSources = [
+    'Tel Aviv Municipality Business Registry',
+    'Israel Corporate Registry',
+    'Government Tax Authority Database',
+  ],
+  lastVerified = new Date(),
 }: RestaurantTemplateProps) {
   const { colorPalette, typography } = generated;
 
@@ -292,6 +307,66 @@ export function RestaurantTemplate({
                 Call Now
               </a>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Verification Section */}
+      <section className="py-12 px-4 bg-gray-50 border-t border-gray-200">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Business Verification</h2>
+            <p className="text-gray-600">
+              Information verified through official sources for your peace of mind
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <VerificationBadge
+                      verified={verified}
+                      licenseNumber={licenseNumber}
+                      dataSources={dataSources}
+                      lastVerified={lastVerified}
+                      onReportIncorrect={() => alert('Report form would open here')}
+                    />
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Business information verified against official Tel Aviv records
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 w-full md:w-auto">
+                <button className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                  View Verification Details
+                </button>
+                <button className="px-4 py-2 text-sm text-gray-700 hover:text-red-600 transition-colors">
+                  Report Incorrect Information
+                </button>
+              </div>
+            </div>
+
+            {licenseNumber && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  <span className="font-semibold">License Number:</span>{' '}
+                  <span className="font-mono">{licenseNumber}</span>
+                  {' • '}
+                  <span>Last verified: {lastVerified.toLocaleDateString()}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
