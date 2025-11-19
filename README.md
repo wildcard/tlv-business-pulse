@@ -120,28 +120,89 @@ npm run dev
 vercel deploy --prod
 ```
 
+## 🚀 Deployment
+
+### Current Deployment Status
+
+**Production**: ✅ Deployed on Vercel
+**Preview**: ✅ Available at https://tlv-business-pulse-mhjiqmz1y-kobi-kadoshs-projects.vercel.app/
+
+### Complete Deployment Guides
+
+We've created comprehensive guides for deploying and operating the platform:
+
+1. **[VERCEL_DEPLOY.md](docs/VERCEL_DEPLOY.md)** - Complete Vercel deployment guide
+2. **[VERCEL_ENV_SETUP.md](docs/VERCEL_ENV_SETUP.md)** - Environment variables configuration
+3. **[DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md)** - Pre/post deployment checklist
+4. **[ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md)** - Detailed environment setup
+5. **[OPERATIONS.md](OPERATIONS.md)** - Daily operations guide
+6. **[MONITORING.md](MONITORING.md)** - Health check and monitoring
+
+### Quick Deploy
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your values (see VERCEL_ENV_SETUP.md)
+
+# 3. Deploy to Vercel
+vercel deploy --prod
+```
+
+### Verify Deployment
+
+After deployment, run the automated verification script:
+
+```bash
+npx tsx scripts/verify-deployment.ts https://your-app.vercel.app
+```
+
+This will test:
+- ✅ SSL certificate
+- ✅ Health endpoint
+- ✅ All API routes
+- ✅ Static pages
+- ✅ Response times
+- ✅ Database connectivity
+
 ## 🔑 Environment Variables
 
-Create a `.env.local` file with:
-
+**Required (Minimum)**:
 ```env
-# Supabase (Database)
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# OpenAI (Content Generation)
-OPENAI_API_KEY=your_openai_api_key
-
-# Stripe (Payments)
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-
-# Google AdSense
-GOOGLE_ADSENSE_CLIENT=ca-pub-xxxxxxxxxx
-
-# Site Configuration
-NEXT_PUBLIC_SITE_URL=https://tlv-business-pulse.vercel.app
+SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```
+
+**Optional (Full Features)**:
+```env
+# Payment Processing
+STRIPE_SECRET_KEY=sk_live_xxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxx
+STRIPE_PRICE_ID_PREMIUM=price_xxxxxxxx
+STRIPE_PRICE_ID_PRO=price_xxxxxxxx
+
+# Notifications
+SENDGRID_API_KEY=SG.xxxxxxxx
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_PHONE_NUMBER=+972xxxxxxxxx
+
+# External APIs
+GOOGLE_PLACES_API_KEY=AIzaSyxxxxxxxx
+TLV_API_KEY=your-api-key
+
+# Monitoring
+SENTRY_DSN=https://xxxxxxxx@sentry.io/xxxxxxx
+GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX
+```
+
+📖 **Complete guide**: See [docs/VERCEL_ENV_SETUP.md](docs/VERCEL_ENV_SETUP.md) for detailed configuration instructions.
 
 ## 📁 Project Structure
 

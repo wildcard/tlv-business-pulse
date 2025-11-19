@@ -160,10 +160,10 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # OPTIONAL (but recommended): Payment Processing (Stripe)
 # ============================================================================
 
-STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-STRIPE_PRICE_ID_PREMIUM=price_xxxxxxxxxxxxxxxxxxxxxx
-STRIPE_PRICE_ID_PRO=price_xxxxxxxxxxxxxxxxxxxxxx
+STRIPE_SECRET_KEY=sk_test_your_stripe_test_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_PRICE_ID_PREMIUM=price_your_premium_price_id
+STRIPE_PRICE_ID_PRO=price_your_pro_price_id
 
 # ============================================================================
 # OPTIONAL: Site Configuration
