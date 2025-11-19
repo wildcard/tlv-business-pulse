@@ -9,7 +9,47 @@
 
 An experimental autonomous business that operates with zero human intervention. It fetches Tel Aviv business data daily, generates insights using AI, publishes content, and manages its own operations through GitHub Actions.
 
-**🤖 100% Autonomous | 🌍 Open Source | 💰 Non-Profit | 📈 Self-Improving**
+**🤖 100% Autonomous | 🌍 Open Source | 💰 Non-Profit | 📈 Self-Improving | ✅ 100% Verifiable Data**
+
+---
+
+## 🔍 **Data Verification & Transparency**
+
+**All businesses showcased are REAL and verifiable.**
+
+We use only official government sources:
+- ✅ **Tel Aviv Municipality Open Data** ([data.tel-aviv.gov.il](https://data.tel-aviv.gov.il))
+- ✅ **Israeli Companies Registry** ([gov.il](https://www.gov.il/he/service/company_extract))
+- ✅ **Google Places** (for location verification)
+
+**Every business can be independently verified:**
+1. Visit `/transparency` to see our complete data pipeline
+2. Use `/api/verify/{license_number}` to check any business
+3. View source code: All verification logic is open source
+4. Cross-reference: Every business page links to official sources
+
+**Quick Verify a Business:**
+```bash
+# Try it yourself - verify any business
+curl https://tlvpulse.com/api/verify/12345678
+
+# Shows: Verification status, data sources, quality score, gov links
+```
+
+**For Community Members:**
+- 📖 [DATA_SOURCES.md](DATA_SOURCES.md) - Complete data documentation
+- 🔍 [/transparency](https://tlvpulse.com/transparency) - Live verification dashboard
+- 🐛 [Report Issues](https://github.com/wildcard/tlv-business-pulse/issues) - Flag incorrect data
+- 💻 [View Verification Code](lib/data/tel-aviv-api.ts) - See exactly how we verify
+
+**We commit to:**
+- Only showcase businesses with active licenses
+- Provide verification links on every business page
+- Respond to verification issues within 24 hours
+- Remove unverifiable businesses within 48 hours
+- Publish monthly transparency reports
+
+---
 
 ## 🚀 Live Demo
 - **Website**: [tlv-business-pulse.vercel.app](https://tlv-business-pulse.vercel.app)
