@@ -9,7 +9,47 @@
 
 An experimental autonomous business that operates with zero human intervention. It fetches Tel Aviv business data daily, generates insights using AI, publishes content, and manages its own operations through GitHub Actions.
 
-**🤖 100% Autonomous | 🌍 Open Source | 💰 Non-Profit | 📈 Self-Improving**
+**🤖 100% Autonomous | 🌍 Open Source | 💰 Non-Profit | 📈 Self-Improving | ✅ 100% Verifiable Data**
+
+---
+
+## 🔍 **Data Verification & Transparency**
+
+**All businesses showcased are REAL and verifiable.**
+
+We use only official government sources:
+- ✅ **Tel Aviv Municipality Open Data** ([data.tel-aviv.gov.il](https://data.tel-aviv.gov.il))
+- ✅ **Israeli Companies Registry** ([gov.il](https://www.gov.il/he/service/company_extract))
+- ✅ **Google Places** (for location verification)
+
+**Every business can be independently verified:**
+1. Visit `/transparency` to see our complete data pipeline
+2. Use `/api/verify/{license_number}` to check any business
+3. View source code: All verification logic is open source
+4. Cross-reference: Every business page links to official sources
+
+**Quick Verify a Business:**
+```bash
+# Try it yourself - verify any business
+curl https://tlvpulse.com/api/verify/12345678
+
+# Shows: Verification status, data sources, quality score, gov links
+```
+
+**For Community Members:**
+- 📖 [DATA_SOURCES.md](DATA_SOURCES.md) - Complete data documentation
+- 🔍 [/transparency](https://tlvpulse.com/transparency) - Live verification dashboard
+- 🐛 [Report Issues](https://github.com/wildcard/tlv-business-pulse/issues) - Flag incorrect data
+- 💻 [View Verification Code](lib/data/tel-aviv-api.ts) - See exactly how we verify
+
+**We commit to:**
+- Only showcase businesses with active licenses
+- Provide verification links on every business page
+- Respond to verification issues within 24 hours
+- Remove unverifiable businesses within 48 hours
+- Publish monthly transparency reports
+
+---
 
 ## 🚀 Live Demo
 - **Website**: [tlv-business-pulse.vercel.app](https://tlv-business-pulse.vercel.app)
@@ -80,28 +120,89 @@ npm run dev
 vercel deploy --prod
 ```
 
+## 🚀 Deployment
+
+### Current Deployment Status
+
+**Production**: ✅ Deployed on Vercel
+**Preview**: ✅ Available at https://tlv-business-pulse-mhjiqmz1y-kobi-kadoshs-projects.vercel.app/
+
+### Complete Deployment Guides
+
+We've created comprehensive guides for deploying and operating the platform:
+
+1. **[VERCEL_DEPLOY.md](docs/VERCEL_DEPLOY.md)** - Complete Vercel deployment guide
+2. **[VERCEL_ENV_SETUP.md](docs/VERCEL_ENV_SETUP.md)** - Environment variables configuration
+3. **[DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md)** - Pre/post deployment checklist
+4. **[ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md)** - Detailed environment setup
+5. **[OPERATIONS.md](OPERATIONS.md)** - Daily operations guide
+6. **[MONITORING.md](MONITORING.md)** - Health check and monitoring
+
+### Quick Deploy
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your values (see VERCEL_ENV_SETUP.md)
+
+# 3. Deploy to Vercel
+vercel deploy --prod
+```
+
+### Verify Deployment
+
+After deployment, run the automated verification script:
+
+```bash
+npx tsx scripts/verify-deployment.ts https://your-app.vercel.app
+```
+
+This will test:
+- ✅ SSL certificate
+- ✅ Health endpoint
+- ✅ All API routes
+- ✅ Static pages
+- ✅ Response times
+- ✅ Database connectivity
+
 ## 🔑 Environment Variables
 
-Create a `.env.local` file with:
-
+**Required (Minimum)**:
 ```env
-# Supabase (Database)
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# OpenAI (Content Generation)
-OPENAI_API_KEY=your_openai_api_key
-
-# Stripe (Payments)
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-
-# Google AdSense
-GOOGLE_ADSENSE_CLIENT=ca-pub-xxxxxxxxxx
-
-# Site Configuration
-NEXT_PUBLIC_SITE_URL=https://tlv-business-pulse.vercel.app
+SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```
+
+**Optional (Full Features)**:
+```env
+# Payment Processing
+STRIPE_SECRET_KEY=sk_live_xxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxx
+STRIPE_PRICE_ID_PREMIUM=price_xxxxxxxx
+STRIPE_PRICE_ID_PRO=price_xxxxxxxx
+
+# Notifications
+SENDGRID_API_KEY=SG.xxxxxxxx
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_PHONE_NUMBER=+972xxxxxxxxx
+
+# External APIs
+GOOGLE_PLACES_API_KEY=AIzaSyxxxxxxxx
+TLV_API_KEY=your-api-key
+
+# Monitoring
+SENTRY_DSN=https://xxxxxxxx@sentry.io/xxxxxxx
+GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX
+```
+
+📖 **Complete guide**: See [docs/VERCEL_ENV_SETUP.md](docs/VERCEL_ENV_SETUP.md) for detailed configuration instructions.
 
 ## 📁 Project Structure
 
