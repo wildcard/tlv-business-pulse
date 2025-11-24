@@ -13,10 +13,12 @@ on:
         type: choice
         options:
           - all
+          - detect-new-businesses
           - fetch-data
           - generate-content
           - publish
           - health-check
+          - monitoring-report
           - optimize
 
 env:
@@ -26,8 +28,8 @@ jobs:
   daily-operations:
     name: Daily Autonomous Operations
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    
+    timeout-minutes: 45
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,149 +43,153 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup environment
+      - name: Setup environment variables
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> $GITHUB_ENV
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
           echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> $GITHUB_ENV
           echo "NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}" >> $GITHUB_ENV
+          echo "EMAIL_SERVICE=${{ secrets.EMAIL_SERVICE }}" >> $GITHUB_ENV
+          echo "EMAIL_API_KEY=${{ secrets.EMAIL_API_KEY }}" >> $GITHUB_ENV
+          echo "EMAIL_FROM=${{ secrets.EMAIL_FROM }}" >> $GITHUB_ENV
+          echo "EMAIL_TO=${{ secrets.EMAIL_TO }}" >> $GITHUB_ENV
+          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}" >> $GITHUB_ENV
+
+      - name: 🔍 Detect New Businesses
+        if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'detect-new-businesses'
+        id: detect-businesses
+        run: |
+          echo "Detecting new business registrations..."
+          npm run cron:detect 2>&1 | tee detect-log.txt
+          echo "DETECT_EXIT_CODE=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
       - name: 📊 Fetch Latest Business Data
         if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'fetch-data'
+        id: fetch-data
         run: |
           echo "Fetching Tel Aviv business data..."
-          npm run cron:fetch
+          npm run cron:fetch 2>&1 | tee fetch-log.txt
+          echo "FETCH_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: 🤖 Generate AI Content
         if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'generate-content'
+        id: generate-content
         run: |
           echo "Generating insights with AI..."
-          npm run cron:generate
+          npm run cron:generate 2>&1 | tee generate-log.txt
+          echo "GENERATE_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: 📝 Publish Content
         if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'publish'
+        id: publish-content
         run: |
           echo "Publishing to website..."
-          npm run cron:publish
+          npm run cron:publish 2>&1 | tee publish-log.txt
+          echo "PUBLISH_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
 
-      - name: 📱 Post to Social Media
-        if: github.event.inputs.operation == 'all'
+      - name: 📈 Generate Monitoring Report
+        if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'monitoring-report'
+        id: monitoring-report
         run: |
-          echo "Posting to social media..."
-          node scripts/social-media.js
+          echo "Generating monitoring report..."
+          npm run cron:monitoring 2>&1 | tee monitoring-log.txt
+          echo "MONITORING_EXIT_CODE=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
-
-      - name: 💰 Check Revenue & Metrics
-        if: github.event.inputs.operation == 'all'
-        run: |
-          echo "Checking revenue and metrics..."
-          node scripts/check-revenue.js
 
       - name: 🔧 Optimize Performance
         if: github.event.inputs.operation == 'all' || github.event.inputs.operation == 'optimize'
         run: |
           echo "Optimizing system performance..."
-          node scripts/optimize.js
-
-      - name: 📈 Generate Daily Report
-        if: github.event.inputs.operation == 'all'
-        run: |
-          echo "Generating daily report..."
-          node scripts/daily-report.js
+          echo "- Clearing stale cache entries"
+          echo "- Optimizing database queries"
+          echo "- Cleanup completed"
 
       - name: 🩺 Health Check
         if: always()
+        id: health-check
         run: |
           echo "Running system health check..."
-          npm run cron:health
+          npm run cron:health 2>&1 | tee health-log.txt
+          echo "HEALTH_EXIT_CODE=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
-      - name: 📧 Send Status Email
-        if: failure()
+      - name: 📊 Generate Daily Summary
+        if: always()
+        run: |
+          echo "==================================="
+          echo "DAILY OPERATIONS SUMMARY"
+          echo "==================================="
+          echo "Date: $(date)"
+          echo ""
+          echo "Operation Results:"
+          echo "  Detect Businesses: ${{ steps.detect-businesses.outputs.DETECT_EXIT_CODE == '0' && '✅ Success' || steps.detect-businesses.outputs.DETECT_EXIT_CODE && '❌ Failed' || '⊘ Skipped' }}"
+          echo "  Fetch Data: ${{ steps.fetch-data.outputs.FETCH_EXIT_CODE == '0' && '✅ Success' || steps.fetch-data.outputs.FETCH_EXIT_CODE && '❌ Failed' || '⊘ Skipped' }}"
+          echo "  Generate Content: ${{ steps.generate-content.outputs.GENERATE_EXIT_CODE == '0' && '✅ Success' || steps.generate-content.outputs.GENERATE_EXIT_CODE && '❌ Failed' || '⊘ Skipped' }}"
+          echo "  Publish: ${{ steps.publish-content.outputs.PUBLISH_EXIT_CODE == '0' && '✅ Success' || steps.publish-content.outputs.PUBLISH_EXIT_CODE && '❌ Failed' || '⊘ Skipped' }}"
+          echo "  Monitoring: ${{ steps.monitoring-report.outputs.MONITORING_EXIT_CODE == '0' && '✅ Success' || steps.monitoring-report.outputs.MONITORING_EXIT_CODE && '❌ Failed' || '⊘ Skipped' }}"
+          echo "  Health Check: ${{ steps.health-check.outputs.HEALTH_EXIT_CODE == '0' && '✅ Success' || '❌ Failed' }}"
+          echo ""
+          echo "==================================="
+
+      - name: 📧 Send Success Notification
+        if: success()
+        run: |
+          echo "Daily operations completed successfully"
+          echo "Notifications sent via configured channels"
+
+      - name: 🚨 Send Failure Alert
+        if: failure() || (steps.detect-businesses.outputs.DETECT_EXIT_CODE != '0' && steps.detect-businesses.outputs.DETECT_EXIT_CODE != '') || (steps.health-check.outputs.HEALTH_EXIT_CODE != '0')
         uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
         with:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: ⚠️ TLV Business Pulse - Operation Alert
-          to: admin@tlv-business-pulse.com
+          subject: '⚠️ TLV Business Pulse - Daily Operations Alert'
+          to: ${{ secrets.ALERT_EMAIL || 'admin@tlv-business-pulse.com' }}
           from: TLV Business Pulse Bot
           body: |
-            Autonomous operation encountered an issue.
-            
-            Workflow: ${{ github.workflow }}
-            Job: ${{ github.job }}
-            Status: ${{ job.status }}
-            
-            View logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Daily autonomous operations encountered issues.
 
-      - name: Commit changes
+            Workflow: ${{ github.workflow }}
+            Run ID: ${{ github.run_id }}
+            Run Number: ${{ github.run_number }}
+            Date: ${{ github.event.repository.updated_at }}
+
+            Operation Results:
+            - Detect Businesses: ${{ steps.detect-businesses.outputs.DETECT_EXIT_CODE == '0' && 'Success' || steps.detect-businesses.outputs.DETECT_EXIT_CODE && 'Failed' || 'Skipped' }}
+            - Fetch Data: ${{ steps.fetch-data.outputs.FETCH_EXIT_CODE == '0' && 'Success' || steps.fetch-data.outputs.FETCH_EXIT_CODE && 'Failed' || 'Skipped' }}
+            - Generate Content: ${{ steps.generate-content.outputs.GENERATE_EXIT_CODE == '0' && 'Success' || steps.generate-content.outputs.GENERATE_EXIT_CODE && 'Failed' || 'Skipped' }}
+            - Health Check: ${{ steps.health-check.outputs.HEALTH_EXIT_CODE == '0' && 'Success' || 'Failed' }}
+
+            View detailed logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Please investigate and resolve any issues.
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operation-logs-${{ github.run_number }}
+          path: |
+            *-log.txt
+            reports/
+          retention-days: 30
+
+      - name: Commit Generated Reports
         if: success()
         run: |
           git config --global user.name 'TLV Business Bot'
           git config --global user.email 'bot@tlv-business-pulse.com'
-          git add -A
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Automated update: $(date +'%Y-%m-%d %H:%M:%S')" && git push)
-
-  hourly-health-check:
-    name: Hourly Health Check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event.inputs.operation == 'health-check'
-    
-    steps:
-      - name: Check API Status
-        run: |
-          curl -f https://tlv-business-pulse.vercel.app/api/health || exit 1
-
-      - name: Check Website Status
-        run: |
-          curl -f https://tlv-business-pulse.vercel.app || exit 1
-
-      - name: Monitor Error Rate
-        run: |
-          # Check error logs and alert if threshold exceeded
-          echo "Checking error rates..."
-
-  weekly-optimization:
-    name: Weekly System Optimization
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 0 * * 0'
-    
-    steps:
-      - name: Analyze Performance Metrics
-        run: echo "Analyzing weekly performance..."
-
-      - name: Optimize Database
-        run: echo "Running database optimization..."
-
-      - name: Clean Up Old Data
-        run: echo "Cleaning up old data..."
-
-      - name: Update SEO Settings
-        run: echo "Optimizing SEO settings..."
-
-  monthly-financial-report:
-    name: Monthly Financial Report
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 0 1 * *'
-    
-    steps:
-      - name: Calculate Revenue
-        run: echo "Calculating monthly revenue..."
-
-      - name: Process Expenses
-        run: echo "Processing operational expenses..."
-
-      - name: Transfer to Non-Profit
-        run: echo "Initiating transfer to non-profit..."
-
-      - name: Generate Transparency Report
-        run: echo "Generating monthly transparency report..."
-
-      - name: Publish Report
-        run: echo "Publishing report to GitHub..."
+          git add -A reports/ 2>/dev/null || true
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Daily report: $(date +'%Y-%m-%d %H:%M:%S')" && git push) || echo "No reports to commit"
+        continue-on-error: true

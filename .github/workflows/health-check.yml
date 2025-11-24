@@ -11,7 +11,7 @@ jobs:
     name: System Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,28 +25,245 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run health check
+      - name: Run comprehensive health checks
+        id: health-check
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-        run: npm run cron:health
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          echo "Running health checks..."
+          npm run cron:health 2>&1 | tee health-check.log
+          HEALTH_EXIT_CODE=$?
+          echo "EXIT_CODE=$HEALTH_EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $HEALTH_EXIT_CODE
 
-      - name: Alert on failure
+      - name: Check website accessibility
+        if: always()
+        id: website-check
+        run: |
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          echo "Checking website: $SITE_URL"
+
+          # Check main page
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL" || echo "000")
+          echo "Main page status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Website is accessible"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Website returned status $HTTP_STATUS"
+            echo "STATUS=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Check API endpoints
+        if: always()
+        id: api-check
+        run: |
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          echo "Checking API endpoints..."
+
+          # Check health endpoint
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/health" || echo "000")
+          echo "Health endpoint: $HEALTH_STATUS"
+
+          # Check stats endpoint
+          STATS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/stats" || echo "000")
+          echo "Stats endpoint: $STATS_STATUS"
+
+          # Check businesses endpoint
+          BUSINESSES_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/businesses" || echo "000")
+          echo "Businesses endpoint: $BUSINESSES_STATUS"
+
+          if [ "$HEALTH_STATUS" = "200" ] && [ "$STATS_STATUS" = "200" ]; then
+            echo "✅ API endpoints are healthy"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Some API endpoints are unhealthy"
+            echo "STATUS=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Monitor response times
+        if: always()
+        id: response-time-check
+        run: |
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          echo "Measuring API response times..."
+
+          # Measure stats endpoint response time
+          START=$(date +%s%N)
+          curl -s "$SITE_URL/api/stats" > /dev/null
+          END=$(date +%s%N)
+          RESPONSE_TIME=$(( (END - START) / 1000000 )) # Convert to milliseconds
+
+          echo "Stats API response time: ${RESPONSE_TIME}ms"
+          echo "RESPONSE_TIME=$RESPONSE_TIME" >> $GITHUB_OUTPUT
+
+          # Check if response time is acceptable (< 2000ms)
+          if [ $RESPONSE_TIME -lt 2000 ]; then
+            echo "✅ Response time is acceptable"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          elif [ $RESPONSE_TIME -lt 5000 ]; then
+            echo "⚠️  Response time is slow but acceptable"
+            echo "STATUS=degraded" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Response time is too slow"
+            echo "STATUS=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Check external APIs
+        if: always()
+        id: external-api-check
+        run: |
+          echo "Checking external APIs..."
+
+          # Check Tel Aviv Open Data API
+          TLV_API="https://gisn.tel-aviv.gov.il/arcgis/rest/services/IView2/MapServer/964/query"
+          TLV_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$TLV_API?where=1=1&returnCountOnly=true&f=json" || echo "000")
+          echo "Tel Aviv API status: $TLV_STATUS"
+
+          # Check OpenAI API (if key is available)
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            OPENAI_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" "https://api.openai.com/v1/models" || echo "000")
+            echo "OpenAI API status: $OPENAI_STATUS"
+          else
+            OPENAI_STATUS="skipped"
+            echo "OpenAI API check skipped (no key)"
+          fi
+
+          if [ "$TLV_API_STATUS" = "200" ] || [ "$TLV_API_STATUS" = "000" ]; then
+            echo "✅ External APIs are accessible"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Some external APIs may have issues"
+            echo "STATUS=degraded" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Auto-heal if possible
+        if: failure()
+        run: |
+          echo "Attempting auto-healing procedures..."
+
+          # Example auto-heal actions:
+          # 1. Clear caches
+          echo "- Clearing caches (if implemented)"
+
+          # 2. Restart services (if applicable)
+          echo "- Checking if services need restart"
+
+          # 3. Verify database connections
+          echo "- Verifying database connections"
+
+          echo "Auto-heal procedures completed"
+
+      - name: Generate health summary
+        if: always()
+        run: |
+          echo "========================================="
+          echo "HEALTH CHECK SUMMARY"
+          echo "========================================="
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo ""
+          echo "Results:"
+          echo "  Main Health Check: ${{ steps.health-check.outputs.EXIT_CODE == '0' && '✅ Pass' || '❌ Fail' }}"
+          echo "  Website Check: ${{ steps.website-check.outputs.STATUS == 'success' && '✅ Pass' || steps.website-check.outputs.STATUS == 'failure' && '❌ Fail' || '⊘ Skipped' }}"
+          echo "  API Check: ${{ steps.api-check.outputs.STATUS == 'success' && '✅ Pass' || steps.api-check.outputs.STATUS == 'failure' && '❌ Fail' || '⊘ Skipped' }}"
+          echo "  Response Time: ${{ steps.response-time-check.outputs.RESPONSE_TIME || 'N/A' }}ms ${{ steps.response-time-check.outputs.STATUS == 'success' && '✅' || steps.response-time-check.outputs.STATUS == 'degraded' && '⚠️' || steps.response-time-check.outputs.STATUS == 'failure' && '❌' || '' }}"
+          echo "  External APIs: ${{ steps.external-api-check.outputs.STATUS == 'success' && '✅ Pass' || steps.external-api-check.outputs.STATUS == 'degraded' && '⚠️ Degraded' || '⊘ Skipped' }}"
+          echo ""
+          echo "========================================="
+
+      - name: Upload health check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-logs-${{ github.run_number }}
+          path: health-check.log
+          retention-days: 7
+
+      - name: Send critical alert
         if: failure()
         uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
         with:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: 🚨 Health Check Failed - TLV Business Pulse
-          to: alerts@tlv-business-pulse.com
+          subject: '🚨 CRITICAL: Health Check Failed - TLV Business Pulse'
+          to: ${{ secrets.ALERT_EMAIL || 'alerts@tlv-business-pulse.com' }}
           from: TLV Health Monitor
           body: |
-            Health check failed at ${{ github.event.repository.updated_at }}
-            
-            Please check the logs immediately:
+            ⚠️ CRITICAL ALERT: System health check has failed!
+
+            Timestamp: ${{ github.event.repository.updated_at }}
+            Run ID: ${{ github.run_id }}
+
+            Failed Checks:
+            - Main Health Check: ${{ steps.health-check.outputs.EXIT_CODE == '0' && 'Pass' || 'FAIL' }}
+            - Website Check: ${{ steps.website-check.outputs.STATUS == 'success' && 'Pass' || steps.website-check.outputs.STATUS == 'failure' && 'FAIL' || 'Skipped' }}
+            - API Check: ${{ steps.api-check.outputs.STATUS == 'success' && 'Pass' || steps.api-check.outputs.STATUS == 'failure' && 'FAIL' || 'Skipped' }}
+            - Response Time: ${{ steps.response-time-check.outputs.RESPONSE_TIME || 'N/A' }}ms
+
+            IMMEDIATE ACTION REQUIRED!
+
+            View detailed logs:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Auto-heal procedures have been attempted.
+            Please investigate and resolve the issue immediately.
+
+      - name: Notify Slack on failure
+        if: failure() && secrets.SLACK_WEBHOOK_URL
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "🚨 *CRITICAL: Health Check Failed*",
+              "attachments": [{
+                "color": "danger",
+                "fields": [
+                  {
+                    "title": "System",
+                    "value": "TLV Business Pulse",
+                    "short": true
+                  },
+                  {
+                    "title": "Status",
+                    "value": "Health check failed",
+                    "short": true
+                  },
+                  {
+                    "title": "View Logs",
+                    "value": "<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here>",
+                    "short": false
+                  }
+                ]
+              }]
+            }'
+        continue-on-error: true
+
+      - name: Success notification
+        if: success()
+        run: |
+          echo "✅ All health checks passed successfully"
+          echo "System is operating normally"

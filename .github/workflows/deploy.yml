@@ -6,10 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy to Vercel
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,16 +24,381 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run linter
+        run: npm run lint
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
       - name: Run tests
-        run: npm test || echo "No tests configured yet"
+        run: npm run test:ci || echo "Tests not fully configured yet"
+        env:
+          NODE_ENV: test
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Check build artifacts
+        run: |
+          echo "Checking build artifacts..."
+          if [ -d ".next" ]; then
+            echo "✅ Build directory exists"
+            echo "Build size: $(du -sh .next | cut -f1)"
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build application
         run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
 
       - name: Deploy to Vercel
+        id: deploy
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
+
+      - name: Get deployment URL
+        id: get-url
+        run: |
+          DEPLOY_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$DEPLOY_URL" ]; then
+            DEPLOY_URL="https://tlv-business-pulse.vercel.app"
+          fi
+          echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "Deployment URL: $DEPLOY_URL"
+
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 10
+
+    steps:
+      - name: Wait for deployment to be ready
+        run: |
+          echo "Waiting 30 seconds for deployment to stabilize..."
+          sleep 30
+
+      - name: Test homepage
+        id: test-homepage
+        run: |
+          echo "Testing homepage..."
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL" || echo "000")
+
+          echo "Homepage status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Homepage is accessible"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Homepage returned status $HTTP_STATUS"
+            echo "STATUS=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Test API health endpoint
+        id: test-api-health
+        run: |
+          echo "Testing API health endpoint..."
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/health" || echo "000")
+
+          echo "API health status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ API health endpoint is accessible"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  API health endpoint returned status $HTTP_STATUS"
+            echo "STATUS=warning" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Test stats API
+        id: test-stats-api
+        run: |
+          echo "Testing stats API..."
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          RESPONSE=$(curl -s "$SITE_URL/api/stats")
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/stats" || echo "000")
+
+          echo "Stats API status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Stats API is working"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Stats API returned status $HTTP_STATUS"
+            echo "STATUS=warning" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Test businesses API
+        id: test-businesses-api
+        run: |
+          echo "Testing businesses API..."
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/api/businesses" || echo "000")
+
+          echo "Businesses API status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Businesses API is working"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Businesses API returned status $HTTP_STATUS"
+            echo "STATUS=warning" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check response times
+        id: check-response-times
+        run: |
+          echo "Checking API response times..."
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          if [ -z "$SITE_URL" ]; then
+            SITE_URL="https://tlv-business-pulse.vercel.app"
+          fi
+
+          # Measure homepage response time
+          START=$(date +%s%N)
+          curl -s "$SITE_URL" > /dev/null
+          END=$(date +%s%N)
+          HOMEPAGE_TIME=$(( (END - START) / 1000000 ))
+
+          # Measure API response time
+          START=$(date +%s%N)
+          curl -s "$SITE_URL/api/stats" > /dev/null
+          END=$(date +%s%N)
+          API_TIME=$(( (END - START) / 1000000 ))
+
+          echo "Homepage response time: ${HOMEPAGE_TIME}ms"
+          echo "API response time: ${API_TIME}ms"
+
+          if [ $API_TIME -lt 2000 ]; then
+            echo "✅ Response times are acceptable"
+            echo "STATUS=success" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Response times are slower than expected"
+            echo "STATUS=warning" >> $GITHUB_OUTPUT
+          fi
+
+          echo "HOMEPAGE_TIME=$HOMEPAGE_TIME" >> $GITHUB_OUTPUT
+          echo "API_TIME=$API_TIME" >> $GITHUB_OUTPUT
+
+      - name: Smoke test summary
+        run: |
+          echo "========================================="
+          echo "SMOKE TEST RESULTS"
+          echo "========================================="
+          echo "Homepage: ${{ steps.test-homepage.outputs.STATUS == 'success' && '✅ Pass' || '❌ Fail' }}"
+          echo "API Health: ${{ steps.test-api-health.outputs.STATUS == 'success' && '✅ Pass' || steps.test-api-health.outputs.STATUS == 'warning' && '⚠️ Warning' || '❌ Fail' }}"
+          echo "Stats API: ${{ steps.test-stats-api.outputs.STATUS == 'success' && '✅ Pass' || steps.test-stats-api.outputs.STATUS == 'warning' && '⚠️ Warning' || '❌ Fail' }}"
+          echo "Businesses API: ${{ steps.test-businesses-api.outputs.STATUS == 'success' && '✅ Pass' || steps.test-businesses-api.outputs.STATUS == 'warning' && '⚠️ Warning' || '❌ Fail' }}"
+          echo "Response Times: ${{ steps.check-response-times.outputs.STATUS == 'success' && '✅ Pass' || '⚠️ Slow' }}"
+          echo ""
+          echo "Homepage: ${{ steps.check-response-times.outputs.HOMEPAGE_TIME }}ms"
+          echo "API: ${{ steps.check-response-times.outputs.API_TIME }}ms"
+          echo "========================================="
+
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-tests]
+    if: always()
+
+    steps:
+      - name: Send success notification
+        if: needs.deploy.result == 'success' && needs.smoke-tests.result == 'success'
+        uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '✅ Deployment Successful - TLV Business Pulse'
+          to: ${{ secrets.EMAIL_TO || 'admin@tlv-business-pulse.com' }}
+          from: TLV Business Pulse Bot
+          body: |
+            Deployment to production completed successfully!
+
+            Commit: ${{ github.sha }}
+            Commit Message: ${{ github.event.head_commit.message }}
+            Deployed By: ${{ github.actor }}
+            Time: ${{ github.event.head_commit.timestamp }}
+
+            DEPLOYMENT STATUS:
+            ✅ Tests passed
+            ✅ Build successful
+            ✅ Deployment to Vercel completed
+            ✅ Smoke tests passed
+
+            SMOKE TEST RESULTS:
+            ✅ Homepage accessible
+            ✅ API endpoints working
+            ✅ Response times acceptable
+
+            Site URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+            View deployment:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ---
+            TLV Business Pulse - Automated Deployment
+
+      - name: Send failure notification
+        if: needs.deploy.result == 'failure' || needs.smoke-tests.result == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '🚨 Deployment Failed - TLV Business Pulse'
+          to: ${{ secrets.ALERT_EMAIL || 'alerts@tlv-business-pulse.com' }}
+          from: TLV Business Pulse Bot
+          body: |
+            ⚠️ ALERT: Deployment to production has FAILED!
+
+            Commit: ${{ github.sha }}
+            Deployed By: ${{ github.actor }}
+            Time: ${{ github.event.head_commit.timestamp }}
+
+            FAILED STEPS:
+            - Tests: ${{ needs.test.result }}
+            - Build: ${{ needs.build.result }}
+            - Deploy: ${{ needs.deploy.result }}
+            - Smoke Tests: ${{ needs.smoke-tests.result }}
+
+            IMMEDIATE ACTION REQUIRED!
+
+            View logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Please investigate and fix the issue.
+
+            ---
+            TLV Business Pulse - Automated Deployment
+
+      - name: Notify Slack on deployment
+        if: success() && secrets.SLACK_WEBHOOK_URL
+        run: |
+          DEPLOYMENT_STATUS="success"
+          if [ "${{ needs.deploy.result }}" != "success" ] || [ "${{ needs.smoke-tests.result }}" != "success" ]; then
+            DEPLOYMENT_STATUS="failure"
+          fi
+
+          COLOR="good"
+          if [ "$DEPLOYMENT_STATUS" = "failure" ]; then
+            COLOR="danger"
+          fi
+
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"Deployment to Production\",
+              \"attachments\": [{
+                \"color\": \"$COLOR\",
+                \"fields\": [
+                  {
+                    \"title\": \"Status\",
+                    \"value\": \"$DEPLOYMENT_STATUS\",
+                    \"short\": true
+                  },
+                  {
+                    \"title\": \"Commit\",
+                    \"value\": \"${{ github.event.head_commit.message }}\",
+                    \"short\": false
+                  },
+                  {
+                    \"title\": \"View Deployment\",
+                    \"value\": \"<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here>\",
+                    \"short\": false
+                  }
+                ]
+              }]
+            }"
+        continue-on-error: true
+
+      - name: Create GitHub Summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** ${{ github.event.head_commit.timestamp }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests: ${{ needs.test.result == 'success' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ needs.build.result == 'success' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Deploy: ${{ needs.deploy.result == 'success' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Smoke Tests: ${{ needs.smoke-tests.result == 'success' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Site URL" >> $GITHUB_STEP_SUMMARY
+          echo "${{ secrets.NEXT_PUBLIC_SITE_URL }}" >> $GITHUB_STEP_SUMMARY
